@@ -296,16 +296,21 @@
 
     loadBoats();
 
-    let selectedWhatsApp = "";
-    const popupForm = document.getElementById("popupForm");
-    const customerForm = document.getElementById("customerForm");
-    const skipBtn = document.getElementById("skipBtn");
+   let selectedWhatsApp = "";
 
+document.addEventListener("DOMContentLoaded", () => {
+  const popupForm = document.getElementById("popupForm");
+  const customerForm = document.getElementById("customerForm");
+  const skipBtn = document.getElementById("skipBtn");
+
+  if (skipBtn) {
     skipBtn.addEventListener("click", () => {
       popupForm.classList.add("hidden");
       window.open(selectedWhatsApp, "_blank");
     });
+  }
 
+  if (customerForm) {
     customerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = new FormData(customerForm);
@@ -317,11 +322,14 @@
       };
 
       try {
-        await fetch("https://script.google.com/macros/s/AKfycbyqxhwylabhYaxhYsHqhM5J-ofFZT8gKB1As49AGl4Iuzrhny0lD2HzCAsAnprKCJeW/exec", {
+        const response = await fetch("https://script.google.com/macros/s/AKfycbyqxhwylabhYaxhYsHqhM5J-ofFZT8gKB1As49AGl4Iuzrhny0lD2HzCAsAnprKCJeW/exec", {
           method: "POST",
           body: JSON.stringify(data),
           headers: { "Content-Type": "application/json" },
         });
+
+        const result = await response.text();
+        console.log("Server response:", result);
       } catch (error) {
         console.error("Gagal kirim ke Google Sheets", error);
       }
@@ -330,6 +338,9 @@
       customerForm.reset();
       window.open(selectedWhatsApp, "_blank");
     });
+  }
+});
+
   </script>
 
   <!-- Popup Form -->
