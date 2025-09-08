@@ -95,194 +95,7 @@
     <p>&copy; 2025 Kepulau - Jelajahi Pulau Bersama Kami</p>
   </footer>
   
-<!-- 1) Load Supabase JS SDK -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<script>
-  // 2) Initialize Supabase client (must be global, before other code)
-  const supabase = window.supabase.createClient(
-    "https://asoybmopsysyghiozxie.supabase.co",  // your Supabase project URL
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzb3libW9wc3lzeWdoaW96eGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczMDY4MzEsImV4cCI6MjA3Mjg4MjgzMX0.rCZQd4OnPjWYqunZDOM8JwwPcA7O1m5JAc0l0-3m8TY" // your anon key
-  );
-
-  // 3) DOM elements
-  const addDestinationBtn = document.getElementById("addDestinationBtn");
-  const destinationsContainer = document.getElementById("destinationsContainer");
-  const submitBtn = document.getElementById("submitBtn");
-  const boatUploadForm = document.getElementById("boatUploadForm");
-  const boatsContainer = document.getElementById("boatsContainer");
-
-  // 4) Form submit handler (upload image + insert row into Supabase)
-  boatUploadForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    submitBtn.disabled = true;
-
-    const boatName = document.getElementById("boatName").value;
-    const boatImageFile = document.getElementById("boatImage").files[0];
-    const maxCapacity = document.getElementById("maxCapacity").value;
-    const contactInfo = document.getElementById("contactInfo").value;
-
-    // Collect destinations
-    const destinations = [];
-    destinationsContainer.querySelectorAll(".destination-row").forEach((row) => {
-      const name = row.querySelector(".destination-name").value;
-      const price = row.querySelector(".destination-price").value;
-      if (name && price) destinations.push({ name, price });
-    });
-
-    // Upload image to Supabase Storage
-    const fileExt = boatImageFile.name.split(".").pop();
-    const filePath = `boats/${Date.now()}.${fileExt}`;
-    const { error: uploadError } = await supabase.storage
-      .from("boat-images")
-      .upload(filePath, boatImageFile);
-
-    if (uploadError) {
-      alert("Image upload failed: " + uploadError.message);
-      submitBtn.disabled = false;
-      return;
-    }
-
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("boat-images")
-      .getPublicUrl(filePath);
-
-    // Save boat info to Supabase DB
-    const { error: insertError } = await supabase.from("boats").insert([
-      {
-        boat_name: boatName,
-        boat_image: publicUrlData.publicUrl,
-        destinations: destinations,   // ✅ make sure column type is JSONB
-        contact_info: contactInfo,
-        max_capacity: parseInt(maxCapacity),
-      },
-    ]);
-
-    if (insertError) {
-      console.log("Insert error:", insertError);
-      alert("Failed to save boat info: " + insertError.message);
-      submitBtn.disabled = false;
-      return;
-    }
-
-    alert("Boat uploaded successfully!");
-    boatUploadForm.reset();
-    loadBoats();
-  });
-
-  // 5) Load boats from Supabase
-  async function loadBoats() {
-    boatsContainer.innerHTML = "";
-    const { data: boats, error } = await supabase.from("boats").select("*");
-
-    if (error) {
-      console.log("Load error:", error);
-      boatsContainer.innerHTML =
-        "<p class='text-red-600'>Failed to load boats.</p>";
-      return;
-    }
-
-    if (!boats || boats.length === 0) {
-      boatsContainer.innerHTML = `<p class="text-center text-cyan-700 col-span-full">
-        Belum ada perahu yang diunggah. Kapten, silakan unggah perahu Anda!
-      </p>`;
-      return;
-    }
-
-    boats.forEach((boat) => {
-      // ✅ Fix: parse destinations if stored as string
-      if (typeof boat.destinations === "string") {
-        try {
-          boat.destinations = JSON.parse(boat.destinations);
-        } catch {
-          boat.destinations = [];
-        }
-      }
-
-      const boatCard = document.createElement("div");
-      boatCard.className =
-        "bg-white rounded-xl shadow-md overflow-hidden flex flex-col relative";
-
-      const img = document.createElement("img");
-      img.src = boat.boat_image;
-      img.alt = `Gambar perahu bernama ${boat.boat_name}`;
-      img.className = "w-full h-48 object-cover";
-
-      const infoDiv = document.createElement("div");
-      infoDiv.className = "p-5 flex flex-col flex-grow";
-
-      const nameEl = document.createElement("h4");
-      nameEl.className = "text-xl font-bold text-cyan-800 mb-3";
-      nameEl.textContent = boat.boat_name;
-
-      const capacityEl = document.createElement("p");
-      capacityEl.className = "text-cyan-700 mb-2";
-      capacityEl.textContent = `Kapasitas Maksimum: ${boat.max_capacity} orang`;
-
-      const destLabel = document.createElement("label");
-      destLabel.className = "font-semibold text-cyan-900 mb-1";
-      destLabel.textContent = "Pilih Tujuan:";
-
-      const destSelect = document.createElement("select");
-      destSelect.className =
-        "mb-4 w-full border border-cyan-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500";
-
-      if (Array.isArray(boat.destinations)) {
-        boat.destinations.forEach((dest, i) => {
-          const option = document.createElement("option");
-          option.value = i;
-          option.textContent = `${dest.name} - Rp ${dest.price}`;
-          destSelect.appendChild(option);
-        });
-      }
-
-      const chatBtn = document.createElement("button");
-      chatBtn.type = "button";
-      chatBtn.className =
-        "mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
-      chatBtn.innerHTML =
-        '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
-      chatBtn.addEventListener("click", () => {
-        window.open(`https://wa.me/${boat.contact_info.replace(/\D/g, "")}`);
-      });
-
-      // ✅ Re-add delete button
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.className =
-        "absolute top-2 right-2 text-red-600 hover:text-red-800 bg-red-100 rounded-full p-1 shadow-md transition";
-      deleteBtn.title = "Hapus Perahu";
-      deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-      deleteBtn.addEventListener("click", async () => {
-        if (confirm(`Apakah Anda yakin ingin menghapus perahu "${boat.boat_name}"?`)) {
-          const { error } = await supabase.from("boats").delete().eq("id", boat.id);
-          if (error) {
-            alert("Gagal menghapus perahu: " + error.message);
-          } else {
-            alert("Perahu berhasil dihapus!");
-            loadBoats();
-          }
-        }
-      });
-
-      infoDiv.appendChild(nameEl);
-      infoDiv.appendChild(capacityEl);
-      infoDiv.appendChild(destLabel);
-      infoDiv.appendChild(destSelect);
-      infoDiv.appendChild(chatBtn);
-
-      boatCard.appendChild(img);
-      boatCard.appendChild(infoDiv);
-      boatCard.appendChild(deleteBtn);
-
-      boatsContainer.appendChild(boatCard);
-    });
-  }
-
-  // 6) Load boats when page starts
-  loadBoats();
-</script>
 
 
 
@@ -470,5 +283,195 @@ document.addEventListener("DOMContentLoaded", () => {
       </form>
     </div>
   </div>
+        <!-- 1) Load Supabase JS SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- 2) Your App Script -->
+<script>
+  // Initialize Supabase client (must be global, before other code)
+  const supabase = window.supabase.createClient(
+    "https://asoybmopsysyghiozxie.supabase.co", // your Supabase project URL
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzb3libW9wc3lzeWdoaW96eGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczMDY4MzEsImV4cCI6MjA3Mjg4MjgzMX0.rCZQd4OnPjWYqunZDOM8JwwPcA7O1m5JAc0l0-3m8TY" // your anon key
+  );
+
+  // DOM elements
+  const addDestinationBtn = document.getElementById("addDestinationBtn");
+  const destinationsContainer = document.getElementById("destinationsContainer");
+  const submitBtn = document.getElementById("submitBtn");
+  const boatUploadForm = document.getElementById("boatUploadForm");
+  const boatsContainer = document.getElementById("boatsContainer");
+
+  // Form submit handler
+  boatUploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    submitBtn.disabled = true;
+
+    const boatName = document.getElementById("boatName").value;
+    const boatImageFile = document.getElementById("boatImage").files[0];
+    const maxCapacity = document.getElementById("maxCapacity").value;
+    const contactInfo = document.getElementById("contactInfo").value;
+
+    // Collect destinations
+    const destinations = [];
+    destinationsContainer.querySelectorAll(".destination-row").forEach((row) => {
+      const name = row.querySelector(".destination-name").value;
+      const price = row.querySelector(".destination-price").value;
+      if (name && price) destinations.push({ name, price });
+    });
+
+    // Upload image
+    const fileExt = boatImageFile.name.split(".").pop();
+    const filePath = `boats/${Date.now()}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from("boat-images")
+      .upload(filePath, boatImageFile);
+
+    if (uploadError) {
+      alert("Image upload failed: " + uploadError.message);
+      submitBtn.disabled = false;
+      return;
+    }
+
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("boat-images")
+      .getPublicUrl(filePath);
+
+    // Save boat info
+    const { error: insertError } = await supabase.from("boats").insert([
+      {
+        boat_name: boatName,
+        boat_image: publicUrlData.publicUrl,
+        destinations: destinations,   // column must be JSONB in Supabase
+        contact_info: contactInfo,
+        max_capacity: parseInt(maxCapacity),
+      },
+    ]);
+
+    if (insertError) {
+      console.log("Insert error:", insertError);
+      alert("Failed to save boat info: " + insertError.message);
+      submitBtn.disabled = false;
+      return;
+    }
+
+    alert("Boat uploaded successfully!");
+    boatUploadForm.reset();
+    loadBoats();
+  });
+
+  // Load boats
+  async function loadBoats() {
+    boatsContainer.innerHTML = "";
+    const { data: boats, error } = await supabase.from("boats").select("*");
+
+    if (error) {
+      console.log("Load error:", error);
+      boatsContainer.innerHTML =
+        "<p class='text-red-600'>Failed to load boats.</p>";
+      return;
+    }
+
+    if (!boats || boats.length === 0) {
+      boatsContainer.innerHTML = `<p class="text-center text-cyan-700 col-span-full">
+        Belum ada perahu yang diunggah. Kapten, silakan unggah perahu Anda!
+      </p>`;
+      return;
+    }
+
+    boats.forEach((boat) => {
+      // Fix: parse destinations if string
+      if (typeof boat.destinations === "string") {
+        try {
+          boat.destinations = JSON.parse(boat.destinations);
+        } catch {
+          boat.destinations = [];
+        }
+      }
+
+      const boatCard = document.createElement("div");
+      boatCard.className =
+        "bg-white rounded-xl shadow-md overflow-hidden flex flex-col relative";
+
+      const img = document.createElement("img");
+      img.src = boat.boat_image;
+      img.alt = `Gambar perahu bernama ${boat.boat_name}`;
+      img.className = "w-full h-48 object-cover";
+
+      const infoDiv = document.createElement("div");
+      infoDiv.className = "p-5 flex flex-col flex-grow";
+
+      const nameEl = document.createElement("h4");
+      nameEl.className = "text-xl font-bold text-cyan-800 mb-3";
+      nameEl.textContent = boat.boat_name;
+
+      const capacityEl = document.createElement("p");
+      capacityEl.className = "text-cyan-700 mb-2";
+      capacityEl.textContent = `Kapasitas Maksimum: ${boat.max_capacity} orang`;
+
+      const destLabel = document.createElement("label");
+      destLabel.className = "font-semibold text-cyan-900 mb-1";
+      destLabel.textContent = "Pilih Tujuan:";
+
+      const destSelect = document.createElement("select");
+      destSelect.className =
+        "mb-4 w-full border border-cyan-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500";
+
+      if (Array.isArray(boat.destinations)) {
+        boat.destinations.forEach((dest, i) => {
+          const option = document.createElement("option");
+          option.value = i;
+          option.textContent = `${dest.name} - Rp ${dest.price}`;
+          destSelect.appendChild(option);
+        });
+      }
+
+      const chatBtn = document.createElement("button");
+      chatBtn.type = "button";
+      chatBtn.className =
+        "mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
+      chatBtn.innerHTML =
+        '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
+      chatBtn.addEventListener("click", () => {
+        window.open(`https://wa.me/${boat.contact_info.replace(/\D/g, "")}`);
+      });
+
+      // Delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className =
+        "absolute top-2 right-2 text-red-600 hover:text-red-800 bg-red-100 rounded-full p-1 shadow-md transition";
+      deleteBtn.title = "Hapus Perahu";
+      deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+      deleteBtn.addEventListener("click", async () => {
+        if (confirm(`Apakah Anda yakin ingin menghapus perahu "${boat.boat_name}"?`)) {
+          const { error } = await supabase.from("boats").delete().eq("id", boat.id);
+          if (error) {
+            alert("Gagal menghapus perahu: " + error.message);
+          } else {
+            alert("Perahu berhasil dihapus!");
+            loadBoats();
+          }
+        }
+      });
+
+      infoDiv.appendChild(nameEl);
+      infoDiv.appendChild(capacityEl);
+      infoDiv.appendChild(destLabel);
+      infoDiv.appendChild(destSelect);
+      infoDiv.appendChild(chatBtn);
+
+      boatCard.appendChild(img);
+      boatCard.appendChild(infoDiv);
+      boatCard.appendChild(deleteBtn);
+
+      boatsContainer.appendChild(boatCard);
+    });
+  }
+
+  // Run on page load
+  loadBoats();
+</script>
+
 </body>
 </html>
