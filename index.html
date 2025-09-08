@@ -250,14 +250,26 @@
       popupForm.classList.add("hidden");
     });
 
-    customerForm.addEventListener("submit", e => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(customerForm));
-      console.log("Customer info:", data);
-      popupForm.classList.add("hidden");
-      window.open(popupForm.dataset.wa, "_blank");
-      customerForm.reset();
+    customerForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(customerForm));
+
+  try {
+    await fetch("https://script.google.com/macros/s/AKfycbzHhCgaoP-vQkEDz3d8pEATA-TFO-HvJSluNc63HYp3N9-_Wak10l-PwCLhcT82u4yW/exec", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: { "Content-Type": "application/json" },
     });
+    console.log("Data sent to Google Sheets:", data);
+  } catch (err) {
+    console.error("Failed to send to Google Sheets:", err);
+  }
+
+  popupForm.classList.add("hidden");
+  window.open(popupForm.dataset.wa, "_blank");
+  customerForm.reset();
+});
+
 
     // Delete handler
     function attachDeleteHandlers() {
