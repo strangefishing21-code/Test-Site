@@ -101,8 +101,8 @@
 <script>
   // 2) Initialize Supabase client (must be global, before other code)
   const supabase = window.supabase.createClient(
-    "https://asoybmopsysyghiozxie.supabase.co",  // 🔹 replace with your Supabase project URL
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzb3libW9wc3lzeWdoaW96eGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczMDY4MzEsImV4cCI6MjA3Mjg4MjgzMX0.rCZQd4OnPjWYqunZDOM8JwwPcA7O1m5JAc0l0-3m8TY"                         // 🔹 replace with your anon public key
+    "https://asoybmopsysyghiozxie.supabase.co",  // your Supabase project URL
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzb3libW9wc3lzeWdoaW96eGllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczMDY4MzEsImV4cCI6MjA3Mjg4MjgzMX0.rCZQd4OnPjWYqunZDOM8JwwPcA7O1m5JAc0l0-3m8TY" // your anon key
   );
 
   // 3) DOM elements
@@ -153,7 +153,7 @@
       {
         boat_name: boatName,
         boat_image: publicUrlData.publicUrl,
-        destinations,
+        destinations: destinations,   // ✅ make sure column type is JSONB
         contact_info: contactInfo,
         max_capacity: parseInt(maxCapacity),
       },
@@ -190,7 +190,16 @@
       return;
     }
 
-    boats.forEach((boat, index) => {
+    boats.forEach((boat) => {
+      // ✅ Fix: parse destinations if stored as string
+      if (typeof boat.destinations === "string") {
+        try {
+          boat.destinations = JSON.parse(boat.destinations);
+        } catch {
+          boat.destinations = [];
+        }
+      }
+
       const boatCard = document.createElement("div");
       boatCard.className =
         "bg-white rounded-xl shadow-md overflow-hidden flex flex-col relative";
@@ -238,6 +247,25 @@
         window.open(`https://wa.me/${boat.contact_info.replace(/\D/g, "")}`);
       });
 
+      // ✅ Re-add delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className =
+        "absolute top-2 right-2 text-red-600 hover:text-red-800 bg-red-100 rounded-full p-1 shadow-md transition";
+      deleteBtn.title = "Hapus Perahu";
+      deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+      deleteBtn.addEventListener("click", async () => {
+        if (confirm(`Apakah Anda yakin ingin menghapus perahu "${boat.boat_name}"?`)) {
+          const { error } = await supabase.from("boats").delete().eq("id", boat.id);
+          if (error) {
+            alert("Gagal menghapus perahu: " + error.message);
+          } else {
+            alert("Perahu berhasil dihapus!");
+            loadBoats();
+          }
+        }
+      });
+
       infoDiv.appendChild(nameEl);
       infoDiv.appendChild(capacityEl);
       infoDiv.appendChild(destLabel);
@@ -246,6 +274,7 @@
 
       boatCard.appendChild(img);
       boatCard.appendChild(infoDiv);
+      boatCard.appendChild(deleteBtn);
 
       boatsContainer.appendChild(boatCard);
     });
