@@ -287,7 +287,7 @@ const { data: publicUrlData } = supabase.storage
   .getPublicUrl(filePath);
 
 // Save boat info to Supabase DB
-const { error: insertError } = await supabase
+const { data, error: insertError } = await supabase
   .from("boats")
   .insert([{
     boat_name: boatName,
@@ -295,7 +295,11 @@ const { error: insertError } = await supabase
     destinations,
     contact_info: contactInfo,
     max_capacity: parseInt(maxCapacity)
-  }]);
+  }])
+  .select();  // 👈 this makes Supabase return the inserted row
+
+console.log("Insert result:", data, insertError);
+
 
 if (insertError) {
   alert("Failed to save boat info: " + insertError.message);
