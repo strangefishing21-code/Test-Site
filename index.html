@@ -94,7 +94,15 @@
   <footer class="bg-cyan-700 text-cyan-100 py-6 mt-20 text-center">
     <p>&copy; 2025 Kepulau - Jelajahi Pulau Bersama Kami</p>
   </footer>
+  
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "YOUR_SUPABASE_URL"; // from Supabase project settings
+  const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"; // from Supabase project settings
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
 
+  
   <!-- JavaScript -->
   <script>
     const addDestinationBtn = document.getElementById("addDestinationBtn");
@@ -136,86 +144,69 @@
       });
     }
 
-    async function loadBoats() {
-      boatsContainer.innerHTML = "";
-      const boats = JSON.parse(localStorage.getItem("kepulauBoats")) || [];
-      if (boats.length === 0) {
-        boatsContainer.innerHTML = `<p class="text-center text-cyan-700 col-span-full">Belum ada perahu yang diunggah. Kapten, silakan unggah perahu Anda!</p>`;
-        return;
-      }
+   async function loadBoats() {
+  boatsContainer.innerHTML = "";
 
-      boats.forEach((boat, index) => {
-        const boatCard = document.createElement("div");
-        boatCard.className = "bg-white rounded-xl shadow-md overflow-hidden flex flex-col relative";
+  const { data: boats, error } = await supabase
+    .from("boats")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-        const img = document.createElement("img");
-        img.src = boat.boatImage;
-        img.alt = `Gambar perahu bernama ${boat.boatName}`;
-        img.className = "w-full h-48 object-cover";
+  if (error) {
+    boatsContainer.innerHTML = `<p class="text-center text-red-600">Failed to load boats: ${error.message}</p>`;
+    return;
+  }
 
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "p-5 flex flex-col flex-grow";
+  if (!boats || boats.length === 0) {
+    boatsContainer.innerHTML = `<p class="text-center text-cyan-700 col-span-full">No boats uploaded yet.</p>`;
+    return;
+  }
 
-        const nameEl = document.createElement("h4");
-        nameEl.className = "text-xl font-bold text-cyan-800 mb-3";
-        nameEl.textContent = boat.boatName;
+  boats.forEach((boat) => {
+    const boatCard = document.createElement("div");
+    boatCard.className = "bg-white rounded-xl shadow-md overflow-hidden flex flex-col relative";
 
-        const capacityEl = document.createElement("p");
-        capacityEl.className = "text-cyan-700 mb-2";
-        capacityEl.textContent = `Kapasitas Maksimum: ${boat.maxCapacity} orang`;
+    const img = document.createElement("img");
+    img.src = boat.boat_image;
+    img.className = "w-full h-48 object-cover";
 
-        const destLabel = document.createElement("label");
-        destLabel.className = "font-semibold text-cyan-900 mb-1";
-        destLabel.setAttribute("for", `destinationSelect${index}`);
-        destLabel.textContent = "Pilih Tujuan:";
+    const infoDiv = document.createElement("div");
+    infoDiv.className = "p-5 flex flex-col flex-grow";
 
-        const destSelect = document.createElement("select");
-        destSelect.id = `destinationSelect${index}`;
-        destSelect.className = "mb-4 w-full border border-cyan-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500";
-        boat.destinations.forEach((dest, i) => {
-          const option = document.createElement("option");
-          option.value = i;
-          option.textContent = `${dest.name} - ${formatRupiah(dest.price)}`;
-          destSelect.appendChild(option);
-        });
+    const nameEl = document.createElement("h4");
+    nameEl.className = "text-xl font-bold text-cyan-800 mb-3";
+    nameEl.textContent = boat.boat_name;
 
-        const chatBtn = document.createElement("button");
-        chatBtn.type = "button";
-        chatBtn.className = "mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
-        chatBtn.innerHTML = '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
-        chatBtn.addEventListener("click", () => {
-          selectedWhatsApp = `https://wa.me/${boat.contactInfo.replace(/\D/g, "")}`;
-          document.getElementById("popupForm").classList.remove("hidden");
-          document.getElementById("popupForm").classList.add("flex");
-        });
+    const capacityEl = document.createElement("p");
+    capacityEl.className = "text-cyan-700 mb-2";
+    capacityEl.textContent = `Max Capacity: ${boat.max_capacity} people`;
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "absolute top-2 right-2 text-red-600 hover:text-red-800 bg-red-100 rounded-full p-1 shadow-md transition";
-        deleteBtn.title = "Hapus Perahu";
-        deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-        deleteBtn.addEventListener("click", () => {
-          if (confirm(`Apakah Anda yakin ingin menghapus perahu "${boat.boatName}"?`)) {
-            const boats = JSON.parse(localStorage.getItem("kepulauBoats")) || [];
-            boats.splice(index, 1);
-            localStorage.setItem("kepulauBoats", JSON.stringify(boats));
-            loadBoats();
-          }
-        });
+    const destSelect = document.createElement("select");
+    destSelect.className = "mb-4 w-full border rounded-md px-3 py-2";
+    (boat.destinations || []).forEach((dest, i) => {
+      const option = document.createElement("option");
+      option.value = i;
+      option.textContent = `${dest.name} - ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(dest.price)}`;
+      destSelect.appendChild(option);
+    });
 
-        infoDiv.appendChild(nameEl);
-        infoDiv.appendChild(capacityEl);
-        infoDiv.appendChild(destLabel);
-        infoDiv.appendChild(destSelect);
-        infoDiv.appendChild(chatBtn);
+    const chatBtn = document.createElement("a");
+    chatBtn.href = `https://wa.me/${boat.contact_info.replace(/\D/g, "")}`;
+    chatBtn.target = "_blank";
+    chatBtn.className = "mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
+    chatBtn.innerHTML = '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
 
-        boatCard.appendChild(img);
-        boatCard.appendChild(infoDiv);
-        boatCard.appendChild(deleteBtn);
+    infoDiv.appendChild(nameEl);
+    infoDiv.appendChild(capacityEl);
+    infoDiv.appendChild(destSelect);
+    infoDiv.appendChild(chatBtn);
 
-        boatsContainer.appendChild(boatCard);
-      });
-    }
+    boatCard.appendChild(img);
+    boatCard.appendChild(infoDiv);
+    boatsContainer.appendChild(boatCard);
+  });
+}
+
 
     boatUploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -277,9 +268,45 @@
         return;
       }
 
-      const boats = JSON.parse(localStorage.getItem("kepulauBoats")) || [];
-      boats.push({ boatName, boatImage: boatImageBase64, destinations, contactInfo, maxCapacity });
-      localStorage.setItem("kepulauBoats", JSON.stringify(boats));
+      // Upload image to Supabase Storage
+const fileExt = boatImageFile.name.split('.').pop();
+const filePath = `boats/${Date.now()}.${fileExt}`;
+const { error: uploadError } = await supabase.storage
+  .from("boat-images")
+  .upload(filePath, boatImageFile);
+
+if (uploadError) {
+  alert("Image upload failed: " + uploadError.message);
+  submitBtn.disabled = false;
+  return;
+}
+
+// Get public URL
+const { data: publicUrlData } = supabase.storage
+  .from("boat-images")
+  .getPublicUrl(filePath);
+
+// Save boat info to Supabase DB
+const { error: insertError } = await supabase
+  .from("boats")
+  .insert([{
+    boat_name: boatName,
+    boat_image: publicUrlData.publicUrl,
+    destinations,
+    contact_info: contactInfo,
+    max_capacity: parseInt(maxCapacity)
+  }]);
+
+if (insertError) {
+  alert("Failed to save boat info: " + insertError.message);
+  submitBtn.disabled = false;
+  return;
+}
+
+alert("Boat uploaded successfully!");
+boatUploadForm.reset();
+loadBoats();
+
 
       boatUploadForm.reset();
       destinationsContainer.innerHTML = `
