@@ -426,12 +426,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
-      const chatBtn = document.createElement("button");
-      chatBtn.type = "button";
-      chatBtn.className =
-        "mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
-      chatBtn.innerHTML =
-        '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
+    const chatBtn = document.createElement("button");
+chatBtn.type = "button";
+chatBtn.className =
+  "chat-btn mt-auto inline-flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-semibold px-4 py-2 rounded-md shadow-md transition";
+chatBtn.setAttribute("data-wa", `https://wa.me/${boat.contact_info.replace(/\D/g, "")}`);
+chatBtn.innerHTML =
+  '<i class="fab fa-whatsapp mr-2"></i> Chat via WhatsApp';
+
       chatBtn.addEventListener("click", () => {
         window.open(`https://wa.me/${boat.contact_info.replace(/\D/g, "")}`);
       });
@@ -471,6 +473,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Run on page load
   loadBoats();
+</script>
+<script>
+  // Elements
+  const popupForm = document.getElementById("popupForm");
+  const customerForm = document.getElementById("customerForm");
+  const skipBtn = document.getElementById("skipBtn");
+
+  // 🔹 Modify Chat button behaviour dynamically
+  function attachChatHandlers() {
+    document.querySelectorAll(".chat-btn").forEach((btn) => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        // Save WhatsApp link in the button
+        const waLink = btn.getAttribute("data-wa");
+        popupForm.dataset.wa = waLink;
+        popupForm.classList.remove("hidden", "opacity-0");
+        popupForm.classList.add("flex");
+      };
+    });
+  }
+
+  // 🔹 Skip button → go to WhatsApp directly
+  skipBtn.addEventListener("click", () => {
+    const waLink = popupForm.dataset.wa;
+    popupForm.classList.add("hidden");
+    window.open(waLink, "_blank");
+  });
+
+  // 🔹 Submit form → save info then go to WhatsApp
+  customerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(customerForm);
+    const email = formData.get("email");
+    const phone = formData.get("phone");
+    const agreement = formData.get("agreement") ? true : false;
+
+    console.log("Customer info:", { email, phone, agreement });
+
+    // 👉 OPTIONAL: send to Supabase or Google Sheets here
+
+    const waLink = popupForm.dataset.wa;
+    popupForm.classList.add("hidden");
+    window.open(waLink, "_blank");
+  });
+
+  // Make sure this runs after loadBoats()
+  document.addEventListener("DOMContentLoaded", attachChatHandlers);
 </script>
 
 </body>
